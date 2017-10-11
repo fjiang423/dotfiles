@@ -1,9 +1,9 @@
-#!/bin/bash
+#!/bin/bash 
 
 # SSH with host name and IP address in background (only in iTerm.app)
 
-# First, check to see if we have the correct terminal!
-if [ "$(tty)" == 'not a tty' ] || [ "$TERM_PROGRAM" != "iTerm.app" ] ; then
+# First, check to see if we have correct command and correct terminal!
+if [ -z "$@" ] || [ "$(tty)" == 'not a tty' ] || [ "$TERM_PROGRAM" != "iTerm.app" ] ; then
   /usr/bin/ssh "$@"
   exit $?
 fi
@@ -25,18 +25,18 @@ function __calculate_iterm_window_dimensions {
 DIMENSIONS=$(__calculate_iterm_window_dimensions)
 
 BG_COLOR="#000000"       # Background color
-FG_COLOR="#C62020"       # Foreground color
-GRAVITY="NorthEast"      # Text gravity (NorthWest, North, NorthEast,
-                         # West, Center, East, SouthWest, South, SouthEast)
-OFFSET1="20,10"          # Text offset
-OFFSET2="20,80"          # Text offset
-FONT_SIZE="60"           # Font size in points
+FG_COLOR="#C69393"       # Foreground color
+OFFSET1="20,50"          # Text offset
+OFFSET2="20,110"         # Text offset
+FONT_SIZE1="50"          # Font size in points
+FONT_SIZE2="45"          # Font size in points
 FONT_STYLE="Normal"      # Font style (Any, Italic, Normal, Oblique)
 # Font path
-FONT="$HOME/.bash/resources/SimpleLife.ttf"
+FONT="$HOME/Library/Fonts/InputMono-Bold.ttf"
 
-HOSTNAME=`echo $@ | sed -e "s/.*@//" -e "s/ .*//"`
-
+HOSTNAME=`echo $@ | sed -e "s/.*@//" -e "s/ .*//"`  # Retrieve hostname from arguments
+HOSTNAME=`echo $(/usr/bin/ssh -G $HOSTNAME) | sed 's/.*hostname \(.*\) port.*/\1/'`  # Resolve .ssh/config Host
+echo $HOSTNAME
 # RESOLVED_HOSTNAME=`nslookup $HOSTNAME|tail -n +4|grep '^Name:'|cut -f2 -d $'\t'`
 # RESOLVED_IP=`nslookup $HOSTNAME|tail -n +4|grep '^Address:'|cut -f2 -d $':'|tail -c +2`
 output=`dscacheutil -q host -a name $HOSTNAME`
@@ -46,17 +46,13 @@ RESOLVED_IP=`echo -e "$output"|grep '^ip_address:'|awk '{print $2}'`
 function set_bg {
   local tty=$(tty)
   osascript -e "
-    tell application \"iTerm\"
-      repeat with theTerminal in terminals
-        tell theTerminal
-          try
-            tell session id \"$tty\"
-              set background image path to \"$1\"
-            end tell
-          on error errmesg number errn
-          end try
-        end tell
-      end repeat
+    tell application \"iTerm2\"
+      tell current session of current tab of current window
+        try
+          set background image to \"$1\"
+        on error errmesg number errn
+        end try
+      end tell
     end tell"
 }
 
@@ -69,10 +65,26 @@ on_exit () {
 }
 trap on_exit EXIT
 
+# Text gravity (NorthWest, NorthEast, Center, SouthWest, SouthEast)
 convert \
-  -size "$DIMENSIONS" xc:"$BG_COLOR" -gravity "$GRAVITY" -fill "$FG_COLOR" -font "$FONT" -style "$FONT_STYLE" -pointsize "$FONT_SIZE" -antialias -draw "text $OFFSET1 '${RESOLVED_HOSTNAME:-$HOSTNAME}'" \
-  -pointsize 30 -draw "text $OFFSET2 '${RESOLVED_IP:-}'" -alpha Off \
+  -size "$DIMENSIONS" xc:"$BG_COLOR" \
+  -gravity "NorthWest" -fill "$FG_COLOR" -font "$FONT" -style "$FONT_STYLE" \
+  -pointsize "$FONT_SIZE1" -antialias -draw "text $OFFSET1 '${RESOLVED_HOSTNAME:-$HOSTNAME}'" \
+  -pointsize "$FONT_SIZE2" -draw "text $OFFSET2 '${RESOLVED_IP:-}'" -alpha Off \
+  -gravity "NorthEast" -fill "$FG_COLOR" -font "$FONT" -style "$FONT_STYLE" \
+  -pointsize "$FONT_SIZE1" -antialias -draw "text $OFFSET1 '${RESOLVED_HOSTNAME:-$HOSTNAME}'" \
+  -pointsize "$FONT_SIZE2" -draw "text $OFFSET2 '${RESOLVED_IP:-}'" -alpha Off \
+  -gravity "SouthWest" -fill "$FG_COLOR" -font "$FONT" -style "$FONT_STYLE" \
+  -pointsize "$FONT_SIZE1" -antialias -draw "text $OFFSET1 '${RESOLVED_HOSTNAME:-$HOSTNAME}'" \
+  -pointsize "$FONT_SIZE2" -draw "text $OFFSET2 '${RESOLVED_IP:-}'" -alpha Off \
+  -gravity "SouthEast" -fill "$FG_COLOR" -font "$FONT" -style "$FONT_STYLE" \
+  -pointsize "$FONT_SIZE1" -antialias -draw "text $OFFSET1 '${RESOLVED_HOSTNAME:-$HOSTNAME}'" \
+  -pointsize "$FONT_SIZE2" -draw "text $OFFSET2 '${RESOLVED_IP:-}'" -alpha Off \
+  -gravity "Center" -fill "$FG_COLOR" -font "$FONT" -style "$FONT_STYLE" \
+  -pointsize "$FONT_SIZE1" -antialias -draw "text 0,0 '${RESOLVED_HOSTNAME:-$HOSTNAME}'" \
+  -pointsize "$FONT_SIZE2" -draw "text 0,50 '${RESOLVED_IP:-}'" -alpha Off \
   "/tmp/iTermBG.$$.png"
 set_bg "/tmp/iTermBG.$$.png"
 
 /usr/bin/ssh "$@"
+
